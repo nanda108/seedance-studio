@@ -1,0 +1,8 @@
+node_modules/
+*.skill
+*.pdf
+*.html
+lbray*
+resume/
+package*.json
+img/
