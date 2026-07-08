@@ -7,18 +7,33 @@
 T2V — только текст | I2V — есть @Image | R2V — несколько референсов | V2V — правка видео
 Определяй по Reference Mapping из project-brief.
 
+## Placeholder для раскадровки
+
+Перед сборкой промптов — прочитай Reference Mapping из project-brief.md.
+Найди последний занятый @ImageN. Стоп-кадр раскадровки = следующий номер.
+
+Пример:
+  @Image1 — Макс, @Image2 — Моника, @Image3 — Сэр, @Image4 — лес → раскадровка @Image5
+  @Image1 — персонаж, @Image2 — лого → раскадровка @Image3
+
+Добавляй строку в каждый промпт после референсов персонажей:
+  Reference @Image[N] as storyboard reference for this scene — visual composition guide.
+
+Если project-brief.md не найден или Reference Mapping пустой — пиши @Image[?] и предупреди:
+  "Уточни номер @Image для раскадровки после инициализации проекта."
+
 ## Шаблоны
 
-### R2V (основной режим при наличии референсов персонажей)
+### R2V (основной при наличии референсов)
 
 Reference @Image1 as [character] — exact appearance throughout.
 Reference @Image2 as [character] — exact appearance throughout.
 [...остальные персонажи и окружение...]
-Reference @ImageN as storyboard frame for this shot — use as visual composition reference.
+Reference @Image[N] as storyboard reference for this scene — visual composition guide.
 
 [SUBJECT + MOTION с физикой],
-in [ENVIRONMENT: форграунд / мидграунд / бэкграунд, время, атмосфера],
-[STYLE: Visual Bible anchor из project-brief],
+in [ENVIRONMENT],
+[STYLE anchor из project-brief],
 [CAMERA: frame + angle + movement + lens].
 [AUDIO: только если нужно].
 Cinematic. [X]s.
@@ -26,31 +41,19 @@ Cinematic. [X]s.
 Stable faces throughout. No morphing. No deformation.
 Consistent character appearance from @Image1, @Image2 [...] in every shot.
 
-### T2V (нет референсов)
+### T2V
 
 [SUBJECT + внешность] [MOTION с физикой],
 in [ENVIRONMENT],
-[STYLE anchor], [CAMERA: frame + angle + movement + lens].
+[STYLE anchor], [CAMERA].
 Cinematic, photorealistic. [X]s.
 
-### I2V (одно стартовое изображение)
+### I2V
 
-[Subject from @Image1] [MOTION — только движение, не повтор картинки],
+[Subject from @Image1] [MOTION — только движение],
 in [Environment], [Style anchor], [Camera],
 maintain exact appearance from @Image1.
 Stable face throughout. No morphing. No deformation.
-
-## Placeholder для раскадровки
-
-В каждый промпт добавляй строку под референсы персонажей:
-
-  Reference @ImageN as storyboard frame for this shot — use as visual composition reference.
-
-Где N = следующий свободный номер после персонажей и окружения.
-Пример: если персонажи @Image1-3, окружение @Image4 → раскадровка @Image5.
-
-Пользователь загрузит сгенерированный стоп-кадр раскадровки на это место в Seedance.
-Если раскадровка ещё не готова — строку оставить, пользователь добавит файл позже.
 
 ## Критические правила
 
@@ -71,7 +74,7 @@ Subject + Motion — первые 20-30 слов.
 EN:
 [Промпт — 100-260 слов]
 
-STORYBOARD REFERENCE: @Image[N] — загрузи сгенерированный кадр раскадровки сюда
+STORYBOARD REFERENCE: @Image[N] — загрузи готовый лист раскадровки сюда
 РЕЖИССЁРСКАЯ ЗАМЕТКА: [что делает шот нарративно]
 ---
 
@@ -83,17 +86,13 @@ Write("{project_path}/prompts/shot-{N}.md", [промпт])
 
 ## После всех шотов — всегда предлагай раскадровку
 
-После того как все промпты готовы, выведи:
-
 ---
-Промпты готовы.
-
-Следующий шаг — раскадровка:
-Я создам storyboard.json с промптами для каждого кадра. Ты генерируешь изображения
-в Gemini / DALL-E / Midjourney, загружаешь в Seedance как @Image[N] — и каждый шот
-получает визуальный референс композиции.
+Промпты готовы. Раскадровка: я читаю эти промпты и собираю один JSON
+с готовым промптом для генерации листа раскадровки.
+Ты генерируешь одно изображение и загружаешь его в Seedance как @Image[N].
 
 Создать раскадровку? (да / нет)
 ---
 
-Если "да" — загрузи gemini-keyframe-designer и передай ему все промпты текущей сцены.
+Если "да" — загрузи gemini-keyframe-designer.
+Передай ему: все промпты этой сцены + @Image[N] для раскадровки.
