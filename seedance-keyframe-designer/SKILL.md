@@ -1,116 +1,143 @@
 ---
 name: gemini-keyframe-designer
 description: >
-  Generates a structured storyboard JSON from Seedance 2 prompts. For each shot in a Seedance
-  project, produces a cinematic image prompt that can be sent to any image generation model
-  (Gemini Imagen, DALL-E, Midjourney, Flux) to create a photorealistic storyboard frame.
-  Output is a single JSON file with three sections: characters (consistent descriptions),
-  style (lighting, color grade, lens), and frames (one image prompt per shot).
+  Converts a Seedance 2 storyboard into a structured JSON file for storyboard visualization.
+  For each shot, generates a cinematic image prompt to create a storyboard still frame using
+  any image model (Gemini Imagen, DALL-E, Midjourney, Flux).
+  Output JSON has four sections: characters, environment, style, frames (one image prompt per shot).
+  The generated storyboard images are then uploaded back into Seedance as @ImageN references
+  inside each shot prompt — giving Seedance a visual composition reference per shot.
   Use whenever the user has Seedance prompts and wants to visualize the storyboard,
-  create reference frames, or pre-visualize a video project before generating it.
-  Trigger on: "раскадровка", "storyboard", "визуализируй проект", "создай кейфреймы",
-  "промпт для изображения", "покажи как будет выглядеть", "сгенерируй референсы".
+  or when seedance-studio/02-prompts.md offers to create a storyboard after building prompts.
+  Trigger on: "раскадровка", "storyboard", "создай раскадровку", "да" после предложения.
 ---
 
 # Seedance Keyframe Designer — Storyboard JSON Generator
 
-Принимает Seedance-промпты проекта и возвращает один JSON-файл для генерации раскадровки.
+Принимает Seedance-промпты сцены → возвращает storyboard.json для генерации стоп-кадров.
+Сгенерированные изображения загружаются обратно в Seedance как @ImageN на место плейсхолдера.
+
+## Пайплайн
+
+```
+сценарий / правка
+      ↓
+seedance-studio → Seedance-промпт (с @ImageN placeholder для каждого шота)
+      ↓
+gemini-keyframe-designer → storyboard.json
+      ↓
+пользователь генерирует изображения (Gemini / DALL-E / Midjourney / Flux)
+      ↓
+загружает каждый кадр в Seedance на место @ImageN
+      ↓
+Seedance получает визуальный референс композиции для каждого шота
+```
 
 ## Входные данные
 
-Читай из project-brief.md (если есть) и промптов шотов:
-- Персонажи и их описания → секция "characters"
-- Visual Bible anchor, стиль, свет → секция "style"
-- Каждый шот → один элемент в "frames"
-
-Если project-brief.md не найден — попроси вставить промпты напрямую.
+Принимает готовые Seedance-промпты (из этой сессии или вставленные пользователем).
+Если есть project-brief.md — Read его для контекста персонажей и стиля.
 
 ## Структура JSON
 
 ```json
 {
   "project": "Название проекта",
+  "format": {
+    "ratio": "16:9",
+    "duration": "15s",
+    "style": "Полное описание стиля"
+  },
   "characters": [
     {
       "id": "character_id",
-      "name": "Имя / роль",
-      "description": "Полное физическое описание для image-модели: возраст, телосложение, черты лица, волосы (цвет, длина, стиль), одежда (каждый элемент: материал, цвет, посадка). Копируется дословно в каждый фрейм где персонаж появляется."
+      "name": "Имя",
+      "reference": "@Image1",
+      "description": "Полное физическое описание: возраст, телосложение, черты лица, волосы, одежда. Копируется дословно в каждый image_prompt где персонаж появляется."
     }
   ],
+  "environment": {
+    "reference": "@Image4",
+    "description": "Полное описание окружения для вставки в каждый image_prompt"
+  },
   "style": {
-    "preset": "Название стиля (Cinematic Photorealistic / Neo-Noir / CGI Animated / etc.)",
-    "lighting": "Полное описание света: направление, качество, источник, цветовая температура, тени, контраст",
-    "color_grade": "Цветовая палитра: конкретные цвета, не настроения. Пример: desaturated olive greens, burnt amber practicals, deep navy shadows",
-    "lens": "Объектив и характер: focal length, aperture feel, crop ratio"
+    "preset": "Точное название стиля",
+    "lighting": "Направление, качество, источник, цветовая температура, тени",
+    "color_grade": "Конкретные цвета — не настроения",
+    "lens_default": "Дефолтный объектив"
   },
   "frames": [
     {
       "shot": 1,
-      "time": "0:00-0:05",
-      "camera": "Тип кадра и движение (Medium-wide, slow push-in)",
-      "action": "Что происходит в кадре — физические действия, не ментальные состояния",
-      "dialogue": "Реплика если есть, или null",
-      "image_prompt": "Полный промпт для генерации изображения — см. правила ниже"
+      "time": "0:00-0:02",
+      "seedance_reference": "@Image5",
+      "camera": "Тип кадра и движение",
+      "action": "Физические действия в этом кадре",
+      "dialogue": "Реплика или null",
+      "image_prompt": "Полный промпт для генерации стоп-кадра"
     }
   ]
 }
 ```
 
+Поле `seedance_reference` — тот самый @ImageN из плейсхолдера в Seedance-промпте.
+Пользователь загружает сгенерированное изображение именно на эту позицию.
+
 ## Правила image_prompt
 
-Каждый image_prompt — это один кинематографический стоп-кадр этого шота.
-Структура: STYLE ANCHOR → CHARACTERS → ACTION/POSE → ENVIRONMENT → LIGHTING → CAMERA → SPECS
+Каждый image_prompt = один кинематографический стоп-кадр шота. 80-150 слов. EN.
 
-### STYLE ANCHOR (первым, всегда)
-Фотореализм: "Cinematic photorealistic still,"
-CGI/анимация: "Cinematic CGI animated still, Pixar/Disney quality,"
-Noir: "35mm cinematic still, high contrast,"
+### Структура (строго в этом порядке)
 
-### CHARACTERS
-- Копируй description из секции "characters" дословно
-- Добавь конкретную позу и выражение для этого фрейма
-- Направление взгляда — обязательно
-- Физические сигналы эмоции: "jaw clenches", не "looks angry"
+**1. Style anchor — первым:**
+- Pixar/CGI: `"Semi-realistic Pixar-inspired 3D animation still, cinematic 4K."`
+- Фотореализм: `"Cinematic photorealistic still, 35mm film."`
+- Noir: `"Cinematic 35mm noir still, high contrast."`
 
-### ENVIRONMENT
-Три плана:
-- Foreground: что между камерой и персонажем
-- Midground: персонаж + основное действие
-- Background: контекст, атмосфера, глубина
+**2. Environment** — description из секции "environment" + детали форграунд/мидграунд/бэкграунд этого шота.
 
-### LIGHTING
-Копируй из секции "style.lighting" дословно + уточнения для этого фрейма.
+**3. Camera** — переводи Seedance-язык в фото-язык:
 
-### CAMERA
-Переводи Seedance-язык в фото-язык:
-- MS slow push-in → "Medium shot, 50mm, f/2.0 shallow depth"
-- ECU static → "Extreme close-up, 85mm, f/1.4, eyes razor-sharp"
-- WS crane up → "Wide shot from low angle, 24mm, slight upward tilt"
-- EWS → "Establishing wide, 18mm, full environment"
+| Seedance | image_prompt |
+|----------|-------------|
+| Medium-wide, 50mm | `"Medium-wide shot, 50mm lens"` |
+| ECU, 85mm | `"Extreme close-up, 85mm portrait lens, f/1.4"` |
+| WS crane up | `"Wide shot, low angle, 24mm, slight upward tilt"` |
+| Rack focus A→B | `"Rack focus: A sharp, B softly blurred"` |
+| Slow push-in | `"Static with implied slow push-in energy"` |
 
-### SPECS (последними, всегда)
-"Photorealistic, ultra-detailed, [ratio] aspect ratio, sharp focus on [subject], no text, no watermarks, single image."
+**4. Characters** — для каждого в кадре:
+- description из "characters" дословно
+- Конкретная поза этого кадра
+- Направление взгляда обязательно
+- Физика эмоции: `"jaw clenches"`, не `"looks angry"`
 
-### Запрещено в image_prompt
-- "digital art", "illustration", "painting" — ломает фотореализм
-- Vague: "dark and moody" → конкретные цвета
-- "happy", "sad", "angry" → физические сигналы
-- Упоминание Seedance, видео, анимации
+**5. Lighting** — style.lighting дословно + уточнения кадра.
 
-## Вывод
+**6. Specs — последними:**
+`"[ratio] aspect ratio. No text. No watermarks. Single frame. Stable faces, no morphing, no deformation."`
 
-1. Выведи JSON полностью в code block
-2. После JSON — краткая инструкция:
+### Запрещено
+- "digital art", "painting", "illustration"
+- "moody", "sad", "happy" → конкретные физические детали
+- Упоминание видео, анимации, движения
 
-```
-КАК ИСПОЛЬЗОВАТЬ:
-1. Скопируй каждый "image_prompt" в Gemini / DALL-E / Midjourney / Flux
-2. Сгенерируй по одному изображению на шот
-3. Собери в сетку (PowerPoint, Figma, Canva) в порядке номеров шотов
-4. Добавь текстовые блоки: shot number, time, camera, action, dialogue
+## Формат вывода
 
-ФОРМАТ СЕТКИ: 2-3 колонки, подписи справа от каждого кадра
-```
+### 1. Краткое описание пайплайна (одна строка)
 
-3. Сохрани JSON:
+"Генерирую storyboard.json — [N] кадров. Загрузи каждый в Gemini/DALL-E/Midjourney, затем обратно в Seedance на место @ImageN."
+
+### 2. JSON в code block
+
+### 3. Таблица загрузки после JSON
+
+| Шот | Файл для генерации | Загрузить в Seedance как |
+|-----|-------------------|--------------------------|
+| 1   | shot-01-storyboard.png | @Image5 |
+| 2   | shot-02-storyboard.png | @Image5 |
+| ... | ... | ... |
+
+### 4. Сохранение
+
 Write("{project_path}/storyboard.json", [json])
